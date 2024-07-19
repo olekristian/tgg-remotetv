@@ -8,103 +8,122 @@ let preventSpamPowerOn = false;
 let isCurrentScreenOn = false
 let IsOpen = false;
 
-function GetUrlId(link) {
-    if (link == null) return;
-
-    const url = link.toString();
-    const regExp = /^.*(youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-    const match = url.match(regExp);
-
-    if (match && match[2].length == 11) {
-        return { type: "youtube", id: match[2] };
-    } else if (url.split("twitch.tv/").length > 1) {
-        return { type: "twitch", id: url.split("twitch.tv/")[1] };
-    } else {
-        return { type: "browser", id: url };
+function isValidUrl(urlString) {
+    try {
+      const url = new URL(urlString);
+      return url.protocol === "http:" || url.protocol === "https:";
+    } catch (_) {
+      return false; 
     }
+  }
+  
+
+function GetUrlId(link) {
+  if (link == null) return;
+
+  try {
+    const url = new URL(link);
+    if (url.hostname.includes('youtube.com')) {
+      return { type: 'youtube', id: url.searchParams.get('v') };
+    } else if (url.hostname.includes('twitch.tv')) {
+      return { type: 'twitch', id: url.pathname.substring(1) };
+    } else {
+      return { type: 'browser', id: link };
+    }
+  } catch (_) {
+    return null;
+  }
 }
 
 function SlideUp() {
-    $(".remotecontrol-container").fadeIn("slow", function () {
-        $(".remotecontrol-container").css("display", "block");
-    })
+  $(".remotecontrol-container").fadeIn("slow", function () {
+    $(".remotecontrol-container").css("display", "block");
+  })
 }
 
 function SlideDown() {
-    $(".remotecontrol-container").fadeOut("slow", function () {
-        $(".remotecontrol-container").css("display", "none");
-    })
+  $(".remotecontrol-container").fadeOut("slow", function () {
+    $(".remotecontrol-container").css("display", "none");
+  })
 
-    HoloHide();
+  HoloHide();
 }
 
 function HoloHide() {
-    $(".holodisplay-container").fadeOut("slow", function () {
-        $(".holodisplay-container").css("display", "none");
-    })
+  $(".holodisplay-container").fadeOut("slow", function () {
+    $(".holodisplay-container").css("display", "none");
+  })
 }
 
 function HoloShow() {
-    $(".holodisplay-container").fadeIn("slow", function () {
-        $(".holodisplay-container").css("display", "block");
+  $(".holodisplay-container").fadeIn("slow", function () {
+    $(".holodisplay-container").css("display", "block");
 
-        $("#video-id-input").focus();
-    })
+    $("#video-id-input").focus();
+  })
 }
 
 function PowerOn() {
-    $(".onoff-indicator").css("background-color", 'green')
+  $(".onoff-indicator").css("background-color", 'green')
 }
 
 function PowerOff() {
-    $(".onoff-indicator").css("background-color", 'red')
+  $(".onoff-indicator").css("background-color", 'red')
 }
 
 function GetInputValue() {
-    return $("#video-id-input").val()
+  return $("#video-id-input").val()
 }
 
 function ClearInputvalue() {
-    $("#video-id-input").val('')
+  $("#video-id-input").val('')
 }
 
 function IsHoloVisible() {
-    return $(".holodisplay-container").css('display') == 'block'
+  return $(".holodisplay-container").css('display') == 'block'
 }
 
 function PlayVideo() {
     let url = GetInputValue();
-
-    if (!url) return;
-
-    let data = GetUrlId(url);
-    if (urlType !== 'browser' && data.type !== urlType) return;
-
-    if (urlType == 'browser') {
-        PlayBrowser();
-    } else if (urlType == 'youtube' || urlType == 'twitch') {
-        $.post(`https://${resourceName}/api-play-video`, JSON.stringify({
-            url: url,
-            type: data.type
-        })).then((res) => {
-            if (res) currentApp = res
-        });
+  
+    if (!url || !isValidUrl(url)) {
+      ClearInputvalue(); 
+      if (IsHoloVisible()) {
+        HoloHide();      
+      }
+      $("#video-id-input").prop('disabled', false);
+      return; 
     }
 
-    ClearInputvalue()
+  let data = GetUrlId(url);
+  if (urlType !== 'browser' && data.type !== urlType) return;
 
-    if ($(".holodisplay-container").css('display') != 'none') {
-        HoloHide()
-    }
-}
-
-function PlayBrowser() {
-    $.post(`https://${resourceName}/browser`, JSON.stringify({
-        url: GetInputValue()
+  if (urlType == 'browser') {
+    PlayBrowser();
+  } else if (urlType == 'youtube' || urlType == 'twitch') {
+    $.post(`https://${resourceName}/api-play-video`, JSON.stringify({
+        url: url,
+        type: data.type
     })).then((res) => {
         if (res) currentApp = res
     });
+  }
+
+  ClearInputvalue()
+
+  if ($(".holodisplay-container").css('display') != 'none') {
+    HoloHide()
+  }
 }
+
+function PlayBrowser() {
+  $.post(`https://${resourceName}/browser`, JSON.stringify({
+    url: GetInputValue()
+  })).then((res) => {
+    if (res) currentApp = res
+  });
+}
+
 
 $(document).on('click', '#power-btn', function (e) {
     e.preventDefault();
